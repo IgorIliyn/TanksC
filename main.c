@@ -1,13 +1,12 @@
 #include <stdio.h>
 #include <stdbool.h>
 #include <windows.h>
-#include <pthread.h>
 #include <source.h>
 #include <conio.h>
+
 // Defines
 
 #define hCon GetStdHandle(STD_OUTPUT_HANDLE)
-#define NUM_THREADS     5
 #define UP 72
 #define DOWN 80
 #define LEFT 75
@@ -28,16 +27,10 @@ typedef struct  {
     COORD position;
     TankDirection direction;
     bool isFirstTurn;
+    bool isShot;
 }Tank;
 
 // Functions
-void *PrintHello(void *threadid)
-{
-   long tid;
-   tid = (long)threadid;
-   printf("Hello World! It's me, thread #%ld!\n", tid);
-   pthread_exit(NULL);
-}
 
 void func_map(const int *mapa)
 {
@@ -249,8 +242,8 @@ bool isFreeWay(Tank *tank, TankDirection direction) {
         break;
         case WEST:{
             int up = MAP[165 * tank->position.Y + (tank->position.X - 1)];
-            int middle = MAP[165 * (tank->position.Y + 1) + (tank->position.X + 1)];
-            int down = MAP[165 * (tank->position.Y + 2) + (tank->position.X + 1)];
+            int middle = MAP[165 * (tank->position.Y + 1) + (tank->position.X - 1)];
+            int down = MAP[165 * (tank->position.Y + 2) + (tank->position.X - 1)];
 
             if (up != 1 && middle != 1 && down != 1)
                 return true;
@@ -359,9 +352,50 @@ void ereasePreviousPosition(Tank *tank)
     }
 }
 
+void checkCollision(Tank *tank, TankDirection direction) {
+    switch(direction) {
+    case NORTH:
+    case SOUTH:{
+        int y;
+        int i;
+        for (i = 0, y = tank->position.Y + 3; i < 3; y++, i++) {
+            int one = MAP[165 * y + tank->position.X];
+            int two = MAP[165 * y + tank->position.X + 1];
+            int three = MAP[165 * y + tank->position.X + 2];
+            int four = MAP[165 * y + tank->position.X + 3];
+            int five = MAP[165 * y + tank->position.X + 4];
+            if (one != 1 && two != 1 && three != 1 && four != 1 && five != 1) {
+                continue;
+            } else {
+                tank->position.Y = y - 6;
+                return;
+            }
+        }
+    }
+        break;
+
+    case EAST:
+    case WEST:{
+        int y;
+        int i;
+        int step;
+        for (step = 3,i = 0, y = tank->position.Y; i < 3; y++, i++, step--) {
+            int one = MAP[165 * y + tank->position.X + 5 + i];
+            int two = MAP[165 * (y + 1) + tank->position.X + 5 + i];
+            int three = MAP[165 * (y + 2) + tank->position.X + 5 + i];
+            if (one != 1 && two != 1 && three != 1) {
+                continue;
+            } else {
+                tank->position.X -= step;
+                return;
+            }
+        }
+        }
+        break;
+    }
+}
+
 void moveTankWithDirection(Tank *tank, TankDirection direction) {
-
-
 
     if (tank->direction == direction) {
         tank->isFirstTurn = false;
@@ -370,6 +404,7 @@ void moveTankWithDirection(Tank *tank, TankDirection direction) {
     }
     ereasePreviousPosition(tank);
     if (tank->isFirstTurn) {
+        checkCollision(tank, direction);
         tank->direction = direction;
     } else {
         switch (direction) {
@@ -410,6 +445,7 @@ int main()
     tank.position.X = 80;
     tank.position.Y = 48;
     tank.isFirstTurn = false;
+    tank.isShot = false;
 
     func_map(MAP);
 
@@ -420,24 +456,28 @@ int main()
         switch (key) {
             case UP:
             moveTankWithDirection(&tank, SOUTH);
+            drawTank(&tank);
             break;
             case DOWN:
             moveTankWithDirection(&tank, NORTH);
+            drawTank(&tank);
             break;
             case LEFT:
             moveTankWithDirection(&tank, WEST);
+            drawTank(&tank);
             break;
             case RIGHT:
             moveTankWithDirection(&tank, EAST);
+            drawTank(&tank);
             break;
             case SHOT:
 
             break;
             case EXIT:
-
+            exit(0);
             break;
         }
-        drawTank(&tank);
+
     }
 
 //    pthread_t threads[NUM_THREADS];
@@ -453,6 +493,6 @@ int main()
 //      }
 
 //      /* Last thing that main() should do */
-//      pthread_exit(NULL);
+    pthread_exit(NULL);
     return 0;
 }
